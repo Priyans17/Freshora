@@ -6,6 +6,7 @@ import BottomBanner from '../components/BottomBanner.jsx'
 import NewsLetter from '../components/NewsLetter.jsx'
 import Footer from '../components/Footer.jsx'
 
+
 const Home = () => {
   return (
     <div className='mt-10'>
