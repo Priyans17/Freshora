@@ -47,10 +47,16 @@ const Orders = () => {
 
             {/* Address */}
             <div className="text-sm md:text-base text-black/60 min-w-[200px] max-w-[300px]">
-              <p className="text-black font-medium">{order.address.firstName} {order.address.lastName}</p>
-              <p>{order.address.street}, {order.address.city}</p>
-              <p>{order.address.state}, {order.address.zipcode}, {order.address.country}</p>
-              <p>{order.address.phone}</p>
+              {order.address && typeof order.address === 'object' ? (
+                <>
+                  <p className="text-black font-medium">{order.address.firstName || ''} {order.address.lastName || ''}</p>
+                  <p>{order.address.street || ''}, {order.address.city || ''}</p>
+                  <p>{order.address.state || ''}, {order.address.zipCode || order.address.zipcode || ''}, {order.address.country || ''}</p>
+                  <p>{order.address.phone || ''}</p>
+                </>
+              ) : (
+                <p>Address ID: {order.address}</p>
+              )}
             </div>
 
             {/* Amount */}

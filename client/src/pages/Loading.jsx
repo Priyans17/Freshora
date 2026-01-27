@@ -1,4 +1,4 @@
-import React, { use, useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { useAppContext } from '../context/AppContext'
 import { useLocation } from 'react-router-dom'
 
@@ -7,15 +7,19 @@ const Loading = () => {
     const {navigate} = useAppContext()
     let {search} = useLocation()
     const params = new URLSearchParams(search)
-    const nextUrl = query.get('next')
+    const nextUrl = params.get('next')
 
     useEffect(() => {
         if (nextUrl) {
-            navigate(setTimeout(() => {
+            setTimeout(() => {
                 navigate(`/${nextUrl}`)
-            }, 5000))
+            }, 2000)
+        } else {
+            setTimeout(() => {
+                navigate('/')
+            }, 2000)
         }
-    }, [nextUrl])
+    }, [nextUrl, navigate])
 
   return (
     <div className='flex justify-center items-center h-screen'>

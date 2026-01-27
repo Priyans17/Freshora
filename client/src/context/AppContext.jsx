@@ -24,11 +24,55 @@ export const AppContextProvider = ({ children }) => {
 
     // Fetch Products
     const fetchProducts = async () => {
-        setProducts(dummyProducts);
+        try {
+            const { data } = await axios.get("/api/product/list");
+            if (data.success && data.products && data.products.length > 0) {
+                setProducts(data.products);
+            } else {
+                // Fallback to dummy products if API fails
+                setProducts(dummyProducts);
+            }
+        } catch (error) {
+            console.log("Error fetching products:", error);
+            // Fallback to dummy products if API fails
+            setProducts(dummyProducts);
+        }
     };
 
     useEffect(() => {
         fetchProducts();
+    }, []);
+
+    // Check user authentication on app load
+    useEffect(() => {
+        const checkAuth = async () => {
+            try {
+                const { data } = await axios.get("/api/user/is-auth");
+                if (data.success && data.user) {
+                    setUser(data.user);
+                }
+            } catch (error) {
+                // User not authenticated, which is fine
+                setUser(null);
+            }
+        };
+        checkAuth();
+    }, []);
+
+    // Check seller authentication on app load
+    useEffect(() => {
+        const checkSellerAuth = async () => {
+            try {
+                const { data } = await axios.get("/api/seller/is-auth");
+                if (data.success) {
+                    setIsSeller(true);
+                }
+            } catch (error) {
+                // Seller not authenticated, which is fine
+                setIsSeller(false);
+            }
+        };
+        checkSellerAuth();
     }, []);
 
     // Add Product to Cart
@@ -106,6 +150,7 @@ export const AppContextProvider = ({ children }) => {
         showUserLogin,
         setShowUserLogin,
         products,
+        setProducts,
         currency,
         cartItems,
         setCartItems,
@@ -116,7 +161,8 @@ export const AppContextProvider = ({ children }) => {
         removeFromCart,
         getCartAmount,
         getCartCount,
-        axios
+        axios,
+        fetchProducts
     };
 
     return (

@@ -7,7 +7,7 @@ const MyOrders = () => {
 
   const fetchMyOrders = async () => {
     try {
-      const { data } = await axios.get(`/api/order/user`);
+      const { data } = await axios.get(`/api/orders/user`);
       if (data.success) {
         setMyOrders(data.orders);
       }
@@ -57,11 +57,11 @@ const MyOrders = () => {
               </div>
 
               <div className="flex flex-col justify-center md:ml-8 mb-4 md:mb-0">
-                <p>Quantity: {item.qunatity || "1"}</p>
+                <p>Quantity: {item.quantity || "1"}</p>
                 <p>Status: {order.status}</p>
                 <p>Date: {new Date(order.createdAt).toLocaleDateString()}</p>
                 </div>
-                <p className="text-primary text-lg font-medium">Amount: {currency}{item.product.offerPrice * item.quantity}</p>
+                <p className="text-primary text-lg font-medium">Amount: {currency}{item.product.offerPrice * (item.quantity || 1)}</p>
             </div>
           ))}
         </div>

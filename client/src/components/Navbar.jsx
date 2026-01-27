@@ -13,13 +13,28 @@ const Navbar = () => {
     setShowUserLogin,
     searchQuery,
     setSearchQuery,
-    navigate
+    navigate,
+    axios
   } = useAppContext()
 
-  const logout = () => {
-    setUser(null)
-    setOpen(false)
-    navigate('/')
+  const logout = async () => {
+    try {
+      const { data } = await axios.get("/api/user/logout");
+      if (data.success) {
+        setUser(null);
+        setOpen(false);
+        toast.success("Logged out successfully");
+        navigate('/');
+      } else {
+        toast.error(data.message || "Logout failed");
+      }
+    } catch (error) {
+      console.log(error);
+      // Still logout locally even if API call fails
+      setUser(null);
+      setOpen(false);
+      navigate('/');
+    }
   }
 
   useEffect(() => {

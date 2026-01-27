@@ -4,19 +4,19 @@ import toast from 'react-hot-toast'
 
 const ProductList = () => {
 
-  const {products, currency, axios ,fetchProducts} = useAppContext()
+  const {products, currency, axios, fetchProducts} = useAppContext()
 
-  const toggleStock = async (id ,inStock) => {
+  const toggleStock = async (id, inStock) => {
     try {
         const { data } = await axios.post('/api/product/toggleStock', { id, inStock });
         if (data.success) {
-            fetchProducts()
+            await fetchProducts()
             toast.success(data.message)
         } else {
-            toast.error(data.message)
+            toast.error(data.message || "Failed to update stock")
         }
     } catch (error) {
-        toast.error(error.message)
+        toast.error(error.response?.data?.message || error.message || "Something went wrong")
     }
   }
 

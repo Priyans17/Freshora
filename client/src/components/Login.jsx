@@ -10,7 +10,7 @@ const Login = () => {
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const { navigate } = useAppContext();
+  const navigate = useNavigate();
 
   const onSubmitHandler = async (event) => {
     event.preventDefault();
@@ -31,16 +31,18 @@ const Login = () => {
         if (loginType === "user") {
           setUser(data.user);
           setShowUserLogin(false);
+          toast.success(state === "register" ? "Account created successfully!" : "Logged in successfully!");
           navigate("/");
         } else {
           setIsSeller(true);
+          toast.success("Seller logged in successfully!");
           navigate("/seller");
         }
       } else {
-        toast.error(data.message);
+        toast.error(data.message || "Something went wrong");
       }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.response?.data?.message || error.message || "Something went wrong. Please try again.");
     }
   };
 
