@@ -37,7 +37,7 @@ const Orders = () => {
                 {order.items.map((item, idx) => (
                   <div key={idx} className="flex flex-col">
                     <p className="font-medium">
-                      {item.product.name}
+                      {item.product?.name || item.productData?.name || "Product"}
                       <span className={`text-primary ${item.quantity < 2 ? "hidden" : ""}`}> x {item.quantity}</span>
                     </p>
                   </div>

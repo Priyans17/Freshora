@@ -12,6 +12,13 @@ const orderSchema = new mongoose.Schema({
             required: true, 
             ref: 'product'
         },
+        // snapshot for non-DB / non-ObjectId products
+        productData: {
+            name: { type: String },
+            offerPrice: { type: Number },
+            image: { type: String },
+            category: { type: String },
+        },
         quantity: {
             type: Number, 
             required: true
@@ -34,6 +41,10 @@ const orderSchema = new mongoose.Schema({
     paymentType: {
         type: String, 
         required: true
+    },
+    stripeSessionId: {
+        type: String,
+        default: null,
     },
     isPaid: {
         type: Boolean, 

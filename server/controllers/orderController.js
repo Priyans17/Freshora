@@ -1,8 +1,11 @@
 import Order from "../models/Order.js"
 import Product from "../models/Product.js"
+import mongoose from "mongoose";
 import Stripe from "stripe";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 import { transporter } from "../utils/sendMail.js";
+
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 // Place Order COD : /api/orders/cod
 export const placeOrderCOD = async (req, res) => {
@@ -19,11 +22,19 @@ export const placeOrderCOD = async (req, res) => {
 
         // Loop through items to calculate total amount
         for (let item of items) {
-            const product = await Product.findById(item.product);
-            if (!product) {
-                return res.json({ success: false, message: "Product not found" });
+            if (isValidObjectId(item.product)) {
+                const product = await Product.findById(item.product);
+                if (!product) {
+                    return res.json({ success: false, message: "Product not found" });
+                }
+                amount += product.offerPrice * item.quantity;
+            } else {
+                const snapPrice = Number(item?.productData?.offerPrice);
+                if (!Number.isFinite(snapPrice) || snapPrice <= 0) {
+                    return res.json({ success: false, message: `Invalid product in cart: ${item.product}` });
+                }
+                amount += snapPrice * item.quantity;
             }
-            amount += product.offerPrice * item.quantity;
         }
 
         // Add tax (2%)
@@ -73,16 +84,29 @@ export const placeOrderStripe = async (req, res) => {
   
       // Prepare line items and calculate tax-inclusive total
       for (let item of items) {
-        const product = await Product.findById(item.product);
-        if (!product) {
-          return res.json({ success: false, message: "Product not found" });
+        let name;
+        let offerPrice;
+
+        if (isValidObjectId(item.product)) {
+          const product = await Product.findById(item.product);
+          if (!product) {
+            return res.json({ success: false, message: "Product not found" });
+          }
+          name = product.name;
+          offerPrice = product.offerPrice;
+        } else {
+          name = item?.productData?.name;
+          offerPrice = Number(item?.productData?.offerPrice);
+          if (!name || !Number.isFinite(offerPrice) || offerPrice <= 0) {
+            return res.json({ success: false, message: `Invalid product in cart: ${item.product}` });
+          }
         }
-  
-        const priceWithTax = parseFloat((product.offerPrice * 1.02).toFixed(2));
+
+        const priceWithTax = parseFloat((offerPrice * 1.02).toFixed(2));
         totalAmount += priceWithTax * item.quantity;
   
         productData.push({
-          name: product.name,
+          name,
           price: priceWithTax,
           quantity: item.quantity,
         });
@@ -91,7 +115,8 @@ export const placeOrderStripe = async (req, res) => {
       // Stripe expects amount in cents
       const line_items = productData.map((item) => ({
         price_data: {
-          currency: "usd",
+          // Use INR by default to match the UI currency
+          currency: (process.env.STRIPE_CURRENCY || "inr").toLowerCase(),
           product_data: {
             name: item.name,
           },
@@ -100,6 +125,19 @@ export const placeOrderStripe = async (req, res) => {
         quantity: item.quantity,
       }));
   
+      // Create a pending order BEFORE redirecting to Stripe so it shows up in User/Seller dashboards.
+      // If you add webhook later, you can mark this paid using session.id.
+      const pendingAmount = Math.floor((totalAmount) * 100) / 100;
+      const orderDoc = await Order.create({
+        userId,
+        items,
+        address,
+        amount: pendingAmount,
+        paymentType: "Online",
+        isPaid: false,
+        status: "Payment Pending",
+      });
+
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         mode: "payment",
@@ -110,11 +148,15 @@ export const placeOrderStripe = async (req, res) => {
           userId,
           addressId: address,
           items: JSON.stringify(items),
+          orderId: String(orderDoc._id),
           // optional: you can also include a hash or checksum to validate later
         },
       });
+
+      // Save session id for later reconciliation (webhook)
+      await Order.findByIdAndUpdate(orderDoc._id, { stripeSessionId: session.id });
   
-        return res.json({success:true, url: session.url})
+      return res.json({success:true, url: session.url})
 
     } catch (error){
         return res.json({success: false, message: error.message})
@@ -136,7 +178,7 @@ export const stripeWebhook = async (req, res) => {
     // Handle the checkout.session.completed event
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-        const { userId, addressId, items } = session.metadata;
+        const { userId, addressId, items, orderId } = session.metadata;
 
         try {
             let amount = 0;
@@ -144,22 +186,37 @@ export const stripeWebhook = async (req, res) => {
 
             // Calculate total amount
             for (let item of parsedItems) {
-                const product = await Product.findById(item.product);
-                if (product) {
-                    amount += product.offerPrice * item.quantity;
+                if (isValidObjectId(item.product)) {
+                    const product = await Product.findById(item.product);
+                    if (product) {
+                        amount += product.offerPrice * item.quantity;
+                    }
+                } else {
+                    const snapPrice = Number(item?.productData?.offerPrice);
+                    if (Number.isFinite(snapPrice) && snapPrice > 0) {
+                        amount += snapPrice * item.quantity;
+                    }
                 }
             }
             amount += Math.floor(amount * 0.02); // Add tax
 
-            // Create the order
-            await Order.create({
-                userId,
-                items: parsedItems,
-                address: addressId,
-                amount,
-                paymentType: "Online",
+            // Prefer updating the pending order if it exists
+            if (orderId) {
+              await Order.findByIdAndUpdate(orderId, {
                 isPaid: true,
-            });
+                status: "Order Placed",
+              });
+            } else {
+              // Fallback: create if not found (older sessions)
+              await Order.create({
+                  userId,
+                  items: parsedItems,
+                  address: addressId,
+                  amount,
+                  paymentType: "Online",
+                  isPaid: true,
+              });
+            }
 
             console.log(`Order created for user ${userId} via Stripe`);
         } catch (error) {
@@ -174,10 +231,8 @@ export const stripeWebhook = async (req, res) => {
 export const getUserOrders = async (req, res) => {
     try {
         const userId = req.id
-        const orders = await Order.find({
-            userId,
-            $or: [{paymentType: "COD"}, {isPaid: true}]
-        }).populate("items.product").sort({createdAt: -1})
+        // Don't populate items.product because many ids are not ObjectIds in this project
+        const orders = await Order.find({ userId }).sort({createdAt: -1})
         return res.json({success: true, orders})
     } catch (error) {
         return res.json({success: false, message: error.message})
@@ -187,9 +242,7 @@ export const getUserOrders = async (req, res) => {
 // Get All Orders : /api/orders/seller
 export const getAllOrders = async (req, res) => {
     try {
-        const orders = await Order.find({
-            $or: [{paymentType: "COD"}, {isPaid: true}]
-        }).populate("items.product").populate("address").sort({createdAt: -1})
+        const orders = await Order.find({}).populate("address").sort({createdAt: -1})
         return res.json({success: true, orders})
     } catch (error) {
         return res.json({success: false, message: error.message})

@@ -18,17 +18,25 @@ await connectDB() // Connect to MongoDB
 await connectCloudinary() // Connect to Cloudinary
 
 
-// Allow multiple origins 
-const allowedOrigins = [process.env.Frontend_URL]; 
-// const allowedOrigins = ['http://localhost:5173'] 
+// Allow multiple origins
+const allowedOrigins = [
+  process.env.Frontend_URL,
+  "http://localhost:5173",
+  "http://localhost:5174",
+].filter(Boolean);
 
 //Middleware configuration
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded data
 app.use(cookieParser());
 app.use(cors({
-    origin: allowedOrigins, 
-    credentials: true, // Allow credentials (cookies, authorization headers, etc.) to be sent
+  origin(origin, callback) {
+    // allow server-to-server / curl with no Origin
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true,
 }))
 
 app.get('/', (req, res) => {

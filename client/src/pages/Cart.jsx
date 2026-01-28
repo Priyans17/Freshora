@@ -35,7 +35,14 @@ const Cart = () => {
         try {
             const items = cartArray.map(product => ({
                 product: product._id,
-                quantity: product.quantity
+                quantity: product.quantity,
+                // send snapshot so server can checkout even for non-ObjectId ids
+                productData: {
+                    name: product.name,
+                    offerPrice: product.offerPrice,
+                    image: product.image?.[0],
+                    category: product.category,
+                }
             }));
 
             if (paymentMethod === "COD") {
@@ -77,8 +84,9 @@ const Cart = () => {
         let tempArray = []
         for(const key in cartItems){
             const product = products.find((item)=> item._id === key)
-            product.quantity = cartItems[key]
-            tempArray.push(product)
+            if (!product) continue;
+            // don't mutate product objects from state
+            tempArray.push({ ...product, quantity: cartItems[key] })
         }
         setCartArray(tempArray)
     }
