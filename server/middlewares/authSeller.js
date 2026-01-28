@@ -1,22 +1,38 @@
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
 
 const authSeller = (req, res, next) => {
-    const { sellerToken } = req.cookies;
+  try {
+    const sellerToken = req.cookies?.sellerToken;
 
-    if(!sellerToken) {
-        return res.json({ success: false, message: "Not Authorized" });
+    // 1️⃣ Token missing
+    if (!sellerToken) {
+      return res.status(401).json({
+        success: false,
+        message: "Seller not authorized (token missing)",
+      });
     }
-    try {
-        const decoded = jwt.verify(sellerToken, process.env.JWT_SECRET);
-        if(decoded.email === process.env.SELLER_EMAIL) {
-            next();
-        }
-        else{
-            return res.json({ success: false, message: "Not Authorized" });
-        }
-    } catch (error) {
-        return res.json({ success: false, message: error.message });
+
+    // 2️⃣ Verify token
+    const decoded = jwt.verify(sellerToken, process.env.JWT_SECRET);
+
+    // 3️⃣ Validate role
+    if (!decoded || decoded.role !== "seller") {
+      return res.status(403).json({
+        success: false,
+        message: "Seller access denied",
+      });
     }
-}
+
+    // 4️⃣ Attach seller info (optional but useful)
+    req.sellerId = decoded.id;
+
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 export default authSeller;
