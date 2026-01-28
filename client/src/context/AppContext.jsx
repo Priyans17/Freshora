@@ -75,6 +75,23 @@ export const AppContextProvider = ({ children }) => {
         checkSellerAuth();
     }, []);
 
+    //Restore user from backend on page load
+    useEffect(() => {
+       const loadUser = async () => {
+    try {
+      const { data } = await axios.get("/api/user/me");
+      if (data.success) {
+        setUser(data.user);
+      }
+    } catch (err) {
+      setUser(null);
+    }
+  };
+
+  loadUser();
+}, []);
+
+
     // Add Product to Cart
     const addToCart = (itemId) => {
         let cartData = structuredClone(cartItems);
