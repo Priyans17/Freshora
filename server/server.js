@@ -20,10 +20,17 @@ await connectCloudinary() // Connect to Cloudinary
 
 // Allow multiple origins
 const allowedOrigins = [
-  process.env.Frontend_URL,
   "http://localhost:5173",
-  "http://localhost:5174",
-].filter(Boolean);
+  "https://freshora.in",
+  "https://freshorain.vercel.app",
+  "https://freshora-4fa14283j-priyans17s-projects.vercel.app"
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
+
 
 //Middleware configuration
 app.use(express.json());
